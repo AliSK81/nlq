@@ -24,7 +24,7 @@ curl http://localhost:8080/health   # Document Index
 curl http://localhost:8000/health   # Query Agent
 ```
 
-4. Open **Open WebUI** at [http://localhost:3000](http://localhost:3000)
+4. Open **Open WebUI** at [http://localhost:3000](http://localhost:3000) for chat, or **Document Console** at [http://localhost:8081](http://localhost:8081) to upload and explore indexed files.
 
 5. Attach a document in chat or ingest for persistent indexing:
 
@@ -45,6 +45,7 @@ curl http://localhost:8080/documents/{document_id}
 | Service | Port | Role |
 |---------|------|------|
 | Open WebUI | 3000 | Chat UI |
+| Document Console | 8081 | Upload, list, search indexed documents (Gradio) |
 | Query Agent | 8000 | NLQ conversation, OpenAI-compat API |
 | Document Index | 8080 | Ingestion, search, document registry |
 | docling-serve | 5001 | Document extraction |
@@ -55,6 +56,7 @@ curl http://localhost:8080/documents/{document_id}
 
 ```
 document-index/   IngestDocument, SearchDocuments, ListDocuments, FetchChunk
+document-console/ Gradio UI — thin client over document-index REST API
 query-agent/      ClassifyIntent, BuildAnswer, grounded Q&A graph
 infra/            Postgres schema
 ```
@@ -74,6 +76,8 @@ docker compose --profile obs up -d
 - `GET /documents` — list documents
 - `GET /documents/{id}` — document status
 - `DELETE /documents/{id}` — remove document
+- `POST /search` — semantic search over chunks
+- `GET /chunks/{id}` — chunk text with neighbor context
 - `POST /tools` — JSON-RPC document search tools
 - `POST /ask` — persisted Q&A (Query Agent)
 
@@ -89,7 +93,8 @@ JSON-RPC at `POST /tools`:
 
 ```bash
 cd document-index && pip install -e ".[dev]" && pytest
-cd query-agent && pip install -e ".[dev]" && pytest
+cd document-console && pip install -e ".[dev]" && pytest
+cd query-agent     && pip install -e ".[dev]" && pytest
 ```
 
 ## Configuration

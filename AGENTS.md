@@ -26,6 +26,7 @@ Explore with search, not memory: `rg`, file tree, and reading `ports.py` / `deli
 | Service | Role |
 |---------|------|
 | **document-index** | Ingest files, extract/chunk/embed, store metadata, search |
+| **document-console** | Gradio UI for upload/list/search — calls document-index REST only |
 | **query-agent** | Intent routing, retrieval orchestration, grounded answers, OpenAI-compat API for WebUI |
 | **Open WebUI** | Chat UI; attaches files and forwards messages to query-agent |
 | **docling-serve** | PDF/document extraction (used by document-index and should be used by WebUI for attachments) |

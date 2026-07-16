@@ -1,0 +1,26 @@
+[project]
+name = "document-console"
+version = "0.1.0"
+description = "Gradio presentation layer for document-index REST API"
+requires-python = ">=3.11"
+dependencies = [
+    "gradio>=5.0",
+    "httpx>=0.27.0",
+    "pydantic-settings>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "respx>=0.21.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
