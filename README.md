@@ -102,7 +102,7 @@ Performance (stack must be up):
 ```bash
 k6 run perf/k6/rag_load.js
 # local budgets: search p95 < 2s, chat p95 < 15s
-# CI uses K6_PROFILE=ci (shorter run, looser cold-start budgets) against docker-compose.ci.yml
+# CI: docker-compose.ci.yml (Tika + mock LLM) + K6_PROFILE=ci
 ```
 
 ## Configuration
