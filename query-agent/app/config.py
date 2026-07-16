@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     agent_min_score: float = 0.3
     agent_max_refines: int = 1
     agent_max_context_chars: int = 12000
+    agent_min_confidence: float = 0.3
     database_url: str = "postgresql+psycopg://postgres:postgres@postgres:5432/nlq"
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""

@@ -91,12 +91,19 @@ class FakeRepo:
 
 class FakeEmbedder:
     dimension = 384
+    hybrid_enabled = False
 
     def embed_passages(self, texts: list[str]) -> list[list[float]]:
         return [[0.1] * self.dimension for _ in texts]
 
     def embed_query(self, text: str) -> list[float]:
         return [0.1] * self.dimension
+
+    def embed_passages_sparse(self, texts: list[str]):
+        return []
+
+    def embed_query_sparse(self, text: str):
+        return None
 
 
 class FakeVectorIndex:
@@ -106,7 +113,7 @@ class FakeVectorIndex:
     def ensure_collection(self) -> None:
         pass
 
-    def upsert_chunks(self, chunks, vectors, document_name) -> None:
+    def upsert_chunks(self, chunks, vectors, document_name, sparse_vectors=None) -> None:
         for c in chunks:
             self.points.append(
                 SearchHit(
@@ -120,8 +127,19 @@ class FakeVectorIndex:
                 )
             )
 
-    def search(self, query_vector, tenant_id, top_k, min_score, document_ids=None) -> SearchResult:
-        hits = self.points[:top_k]
+    def search(
+        self,
+        query_vector,
+        tenant_id,
+        top_k,
+        min_score,
+        document_ids=None,
+        query_sparse=None,
+    ) -> SearchResult:
+        hits = self.points
+        if document_ids:
+            hits = [h for h in hits if h.document_id in document_ids]
+        hits = hits[:top_k]
         return SearchResult(hits=hits, total=len(hits))
 
     def delete_by_document(self, document_id: DocumentId) -> None:

@@ -14,8 +14,9 @@ def _is_persian(text: str) -> bool:
 
 
 class BuildAnswer:
-    def __init__(self, llm: LlmPort) -> None:
+    def __init__(self, llm: LlmPort, min_confidence: float = 0.0) -> None:
         self._llm = llm
+        self._min_confidence = min_confidence
 
     def execute(
         self,
@@ -28,6 +29,10 @@ class BuildAnswer:
             return AnswerOutput(answer=msg, citations=[], confidence=0.0), 0, False
 
         result, tokens = self._llm.build_answer(question, hits, memory_context)
+        if result.confidence < self._min_confidence:
+            msg = ABSTAIN_MESSAGE_FA if _is_persian(question) else ABSTAIN_MESSAGE
+            return AnswerOutput(answer=msg, citations=[], confidence=result.confidence), tokens, False
+
         citations = result.citations or [
             {
                 "document_name": h.get("document_name"),

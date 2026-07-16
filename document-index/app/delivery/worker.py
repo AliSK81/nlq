@@ -88,9 +88,15 @@ class IngestionWorker:
 
         doc.transition_to(IngestionStatus.EMBEDDING)
         self._repo.update(doc)
-        vectors = self._embedder.embed_passages([c.text for c in chunks])
+        texts = [c.text for c in chunks]
+        vectors = self._embedder.embed_passages(texts)
+        sparse = (
+            self._embedder.embed_passages_sparse(texts)
+            if self._embedder.hybrid_enabled
+            else None
+        )
 
-        self._vector_index.upsert_chunks(chunks, vectors, doc.name)
+        self._vector_index.upsert_chunks(chunks, vectors, doc.name, sparse_vectors=sparse)
         self._repo.save_chunks(chunks)
 
         doc.transition_to(IngestionStatus.INDEXED)

@@ -24,7 +24,7 @@ def test_focus_text_finds_keyword_window():
     text = "aaa " * 1000 + "Pattern Selection Guide details here " + "bbb " * 1000
     snippet = focus_text(text, "Pattern Selection Guide", 500)
     assert "Pattern Selection Guide" in snippet
-    assert len(snippet) <= 520
+    assert len(snippet) <= 500
 
 
 def test_prepare_hits_splits_budget():

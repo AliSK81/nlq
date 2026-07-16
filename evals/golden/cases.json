@@ -1,0 +1,29 @@
+[
+  {
+    "id": "en-revenue",
+    "language": "en",
+    "question": "What was the revenue growth?",
+    "contexts": [
+      "Q3 financial summary: Revenue grew 20% year over year driven by cloud subscriptions."
+    ],
+    "ground_truth": "Revenue grew 20% year over year."
+  },
+  {
+    "id": "en-abstain",
+    "language": "en",
+    "question": "What is the capital of France?",
+    "contexts": [
+      "This product manual covers installation steps for the NLQ appliance only."
+    ],
+    "ground_truth": "The documents do not contain that information."
+  },
+  {
+    "id": "fa-experience",
+    "language": "fa",
+    "question": "چند سال سابقه کاری دارد؟",
+    "contexts": [
+      "علی ابراهیمی از نوامبر ۲۰۲۲ تاکنون به عنوان مهندس نرم‌افزار مشغول به کار است."
+    ],
+    "ground_truth": "از نوامبر ۲۰۲۲ تاکنون سابقه کاری دارد."
+  }
+]

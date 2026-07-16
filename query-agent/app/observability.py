@@ -7,18 +7,32 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
+def create_langfuse_handler():
+    if not (settings.langfuse_public_key and settings.langfuse_secret_key):
+        return None
+    try:
+        from langfuse.callback import CallbackHandler
+
+        handler = CallbackHandler(
+            public_key=settings.langfuse_public_key,
+            secret_key=settings.langfuse_secret_key,
+            host=settings.langfuse_host,
+            tags=["file-qa", "openai-compat"],
+        )
+        logger.info("Langfuse callback handler created")
+        return handler
+    except Exception as exc:
+        logger.warning("Langfuse handler setup failed: %s", exc)
+        return None
+
+
 def setup_observability(app) -> None:
     if settings.langfuse_public_key and settings.langfuse_secret_key:
         try:
-            from langfuse.callback import CallbackHandler
-
-            handler = CallbackHandler(
-                public_key=settings.langfuse_public_key,
-                secret_key=settings.langfuse_secret_key,
-                host=settings.langfuse_host,
-            )
-            app.state.langfuse_handler = handler
-            logger.info("Langfuse tracing enabled")
+            handler = create_langfuse_handler()
+            if handler:
+                app.state.langfuse_handler = handler
+                logger.info("Langfuse tracing enabled")
         except Exception as exc:
             logger.warning("Langfuse setup failed: %s", exc)
 

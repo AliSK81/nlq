@@ -22,6 +22,12 @@ class ExtractedDoc:
 
 
 @dataclass
+class SparseEmbedding:
+    indices: list[int]
+    values: list[float]
+
+
+@dataclass
 class SearchHit:
     chunk_id: str
     document_id: str
@@ -64,9 +70,20 @@ class Embedder(Protocol):
     @property
     def dimension(self) -> int: ...
 
+    @property
+    def hybrid_enabled(self) -> bool: ...
+
     def embed_passages(self, texts: list[str]) -> list[list[float]]: ...
 
     def embed_query(self, text: str) -> list[float]: ...
+
+    def embed_passages_sparse(self, texts: list[str]) -> list[SparseEmbedding]: ...
+
+    def embed_query_sparse(self, text: str) -> SparseEmbedding | None: ...
+
+
+class Reranker(Protocol):
+    def rerank(self, query: str, hits: list[SearchHit], top_k: int) -> list[SearchHit]: ...
 
 
 class VectorIndex(Protocol):
@@ -77,6 +94,7 @@ class VectorIndex(Protocol):
         chunks: list[Chunk],
         vectors: list[list[float]],
         document_name: str,
+        sparse_vectors: list[SparseEmbedding] | None = None,
     ) -> None: ...
 
     def search(
@@ -86,6 +104,7 @@ class VectorIndex(Protocol):
         top_k: int,
         min_score: float,
         document_ids: list[str] | None = None,
+        query_sparse: SparseEmbedding | None = None,
     ) -> SearchResult: ...
 
     def delete_by_document(self, document_id: DocumentId) -> None: ...

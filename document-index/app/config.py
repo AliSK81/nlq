@@ -10,6 +10,11 @@ class Settings(BaseSettings):
     tika_url: str = "http://tika:9998"
     embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     embedding_dim: int = 384
+    hybrid_search: bool = True
+    sparse_embedding_model: str = "Qdrant/bm25"
+    reranker: str = "fastembed"
+    reranker_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
+    rerank_candidate_multiplier: int = 4
     chunk_target_tokens: int = 512
     chunk_overlap_tokens: int = 64
     upload_dir: str = "/data/uploads"

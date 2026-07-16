@@ -18,7 +18,7 @@ jobs:
         run: |
           cd document-index
           pip install -e ".[dev]"
-          pytest --cov=app --cov-report=term-missing -q
+          pytest --cov=app --cov-report=term-missing -q -m "not integration"
 
   test-query-agent:
     runs-on: ubuntu-latest
@@ -46,6 +46,46 @@ jobs:
           pip install -e ".[dev]"
           pytest -q
 
+  integration-qdrant:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Qdrant integration tests
+        run: |
+          cd document-index
+          pip install -e ".[dev]"
+          pytest tests/test_integration_qdrant.py -q
+
+  rag-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: DeepEval golden set (skips without LLM_API_KEY)
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          pip install -e "query-agent/[dev]"
+          pip install -e "query-agent/[eval]" || pip install deepeval
+          pytest evals/test_rag_quality.py -q
+
+  perf-k6:
+    runs-on: ubuntu-latest
+    if: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run k6 (enable when stack is up in CI)
+        uses: grafana/k6-action@v0.3.1
+        with:
+          filename: perf/k6/rag_load.js
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -55,5 +95,10 @@ jobs:
           python-version: "3.11"
       - name: Ruff check
         run: |
-          pip install ruff
+          pip install ruff mypy
           ruff check document-index document-console query-agent
+      - name: Mypy (query-agent usecases)
+        run: |
+          pip install -e "query-agent/[dev]"
+          mypy query-agent/app/usecases --ignore-missing-imports
+        continue-on-error: true

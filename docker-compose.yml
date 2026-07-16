@@ -41,7 +41,12 @@ services:
       docling-serve:
         condition: service_started
     ports: ["8080:8080"]
-    volumes: ["uploads:/data/uploads"]
+    volumes:
+      - uploads:/data/uploads
+      - fastembed_models:/models
+    environment:
+      FASTEMBED_CACHE_PATH: /models/fastembed
+      HF_HOME: /models/hf
     networks:
       default:
         aliases:
@@ -115,5 +120,6 @@ volumes:
   qdrant_data: {}
   pg_data: {}
   uploads: {}
+  fastembed_models: {}
   openwebui_data: {}
   openwebui_data_v2: {}

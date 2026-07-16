@@ -2,43 +2,31 @@
 
 Open-source, locally deployed **Natural Language Query system over uploaded files**. Upload documents, index them with pluggable extractors, and ask questions via Open WebUI with grounded answers and citations.
 
-## Quick Start
+## Happy path
 
-1. Copy environment template and configure your LLM provider:
+1. `cp .env.example .env` and set `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`.
+2. `docker compose up -d --build`
+3. Open **Document Console** at [http://localhost:8081](http://localhost:8081) → upload a file → wait until status is `INDEXED`.
+4. Open **Open WebUI** at [http://localhost:3000](http://localhost:3000) → select model **file-qa-agent** → ask a question.
+5. Inspect `reasoning_content` on the response (intent, hits, grounded) via API or debug tooling.
+
+Or smoke the same path:
+
+```bash
+python scripts/compose_smoke.py
+```
+
+**Note:** After enabling hybrid search, recreate the Qdrant collection (or wipe the `qdrant_data` volume) so named dense+sparse vectors are created.
+
+## Quick Start (API)
 
 ```bash
 cp .env.example .env
-# Edit .env — set LLM_BASE_URL, LLM_API_KEY, LLM_MODEL
-```
-
-2. Start the stack:
-
-```bash
 docker compose up -d
-```
-
-3. Verify services:
-
-```bash
 curl http://localhost:8080/health   # Document Index
 curl http://localhost:8000/health   # Query Agent
-```
-
-4. Open **Open WebUI** at [http://localhost:3000](http://localhost:3000) for chat, or **Document Console** at [http://localhost:8081](http://localhost:8081) to upload and explore indexed files.
-
-5. Attach a document in chat or ingest for persistent indexing:
-
-```bash
 curl -X POST http://localhost:8080/ingest -F "file=@your-document.pdf"
 ```
-
-6. Poll until indexed:
-
-```bash
-curl http://localhost:8080/documents/{document_id}
-```
-
-7. In Open WebUI, select model **file-qa-agent** and ask a question about your document.
 
 ## Architecture
 
@@ -46,11 +34,15 @@ curl http://localhost:8080/documents/{document_id}
 |---------|------|------|
 | Open WebUI | 3000 | Chat UI |
 | Document Console | 8081 | Upload, list, search indexed documents (Gradio) |
-| Query Agent | 8000 | NLQ conversation, OpenAI-compat API |
-| Document Index | 8080 | Ingestion, search, document registry |
+| Query Agent | 8000 | LangGraph NLQ + OpenAI-compat API |
+| Document Index | 8080 | Ingest, hybrid search, document registry |
 | docling-serve | 5001 | Document extraction |
-| Qdrant | 6333 | Vector search |
+| Qdrant | 6333 | Hybrid vector search (dense + BM25 sparse) |
 | PostgreSQL | 5433 | Document metadata |
+
+**Retrieval:** Document Index uses **Chonkie** chunking, **FastEmbed** dense + BM25 sparse embeddings, **Qdrant RRF hybrid** search, and an optional FastEmbed cross-encoder **reranker**. Query Agent talks to Document Index over **REST** (`/search`, `/documents`, `/chunks`). JSON-RPC `POST /tools` remains for external agents.
+
+**Out of scope (use a product like Onyx if needed):** GraphRAG, multi-tenant RBAC, MinIO object store, enterprise connectors.
 
 ## Project layout
 
@@ -58,16 +50,18 @@ curl http://localhost:8080/documents/{document_id}
 document-index/   IngestDocument, SearchDocuments, ListDocuments, FetchChunk
 document-console/ Gradio UI — thin client over document-index REST API
 query-agent/      ClassifyIntent, BuildAnswer, grounded Q&A graph
+evals/            Golden set + DeepEval quality gates
+perf/k6/          Load tests (p95 budgets)
 infra/            Postgres schema
 ```
 
-Each service follows the same layers: `domain/`, `usecases/`, `adapters/`, `delivery/`.
+Each Python service follows: `domain/` → `usecases/` (+ `ports.py`) → `adapters/` → `delivery/`.
 
 ## Optional Profiles
 
 ```bash
 EXTRACTOR=tika docker compose --profile tika up -d
-docker compose --profile obs up -d
+docker compose --profile obs up -d   # Jaeger OTEL
 ```
 
 ## REST API (Document Index)
@@ -76,37 +70,50 @@ docker compose --profile obs up -d
 - `GET /documents` — list documents
 - `GET /documents/{id}` — document status
 - `DELETE /documents/{id}` — remove document
-- `POST /search` — semantic search over chunks
+- `POST /search` — hybrid semantic search over chunks
+- `GET /documents/{id}/chunks` — all chunks for a document
 - `GET /chunks/{id}` — chunk text with neighbor context
-- `POST /tools` — JSON-RPC document search tools
-- `POST /ask` — persisted Q&A (Query Agent)
+- `POST /tools` — optional JSON-RPC tools (external agents)
 
-## Document search tools
+Query Agent: `POST /v1/chat/completions`, `POST /ask`.
 
-JSON-RPC at `POST /tools`:
-
-- `search_documents` — semantic search over chunks
-- `list_documents` — list indexed files
-- `fetch_chunk` — get chunk with neighbor context
-
-## Development
+## Development & tests
 
 ```bash
-cd document-index && pip install -e ".[dev]" && pytest
+cd document-index && pip install -e ".[dev]" && pytest -m "not integration"
 cd document-console && pip install -e ".[dev]" && pytest
 cd query-agent     && pip install -e ".[dev]" && pytest
+```
+
+Integration (Docker required):
+
+```bash
+cd document-index && pytest tests/test_integration_qdrant.py
+```
+
+RAG quality (needs `LLM_API_KEY`):
+
+```bash
+pytest evals/test_rag_quality.py
+```
+
+Performance (stack must be up):
+
+```bash
+k6 run perf/k6/rag_load.js
+# budgets: search p95 < 2s, chat p95 < 15s
 ```
 
 ## Configuration
 
 See [`.env.example`](.env.example). Key variables:
 
-- `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` — OpenAI-compatible provider
-- `DOCUMENT_INDEX_URL` — document index service URL
-- `EXTRACTOR` — `docling` (default) or `tika`
-- `EMBEDDING_MODEL`, `EMBEDDING_DIM` — embedding model
-- `AGENT_TOP_K`, `AGENT_MIN_SCORE`, `AGENT_MAX_REFINES` — retrieval tuning
+- `LLM_*` — OpenAI-compatible provider
+- `HYBRID_SEARCH`, `RERANKER`, `RERANK_CANDIDATE_MULTIPLIER` — retrieval power
+- `AGENT_TOP_K`, `AGENT_MIN_SCORE`, `AGENT_MIN_CONFIDENCE` — agent gates
+- `EMBEDDING_MODEL`, `EMBEDDING_DIM` — dense model (upgrade path: BGE-M3)
+- `LANGFUSE_*` / `OTEL_*` — optional tracing
 
 ## License
 
-Open source — see IMPLEMENTATION_PLAN.md for full design reference.
+Open source — see IMPLEMENTATION_PLAN.md for historical design notes (service names there may lag; trust this README and compose).

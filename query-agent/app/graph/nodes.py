@@ -207,8 +207,12 @@ class GraphNodes:
                     document_ids=None,
                 )
 
-        if not hits:
-            hits = list(state.get("prefetched_hits") or [])
+        prefetched = list(state.get("prefetched_hits") or [])
+        if prefetched:
+            # WebUI attachment path: prefer injected <source> context over corpus search.
+            hits = prefetched
+        elif not hits:
+            hits = []
 
         should_refine = "done"
         new_refine_count = refine_count
@@ -240,22 +244,6 @@ class GraphNodes:
         start = time.monotonic()
         question = state.get("effective_question") or state["question"]
         hits = state.get("hits") or []
-
-        if state.get("retrieval_mode") == "full_document" and hits:
-            doc_name = hits[0].get("document_name", "document")
-            sections = [f"### Part {i}\n{h.get('text', '').strip()}" for i, h in enumerate(hits, 1)]
-            answer = f"Full content of **{doc_name}** ({len(hits)} parts):\n\n" + "\n\n".join(sections)
-            citations = [{"document_name": doc_name, "page": h.get("page"), "chunk_id": h.get("chunk_id")} for h in hits[:3]]
-            duration = int((time.monotonic() - start) * 1000)
-            suffix = "\n\n" + BuildAnswer.format_citations(citations) if citations else ""
-            return {
-                "answer_text": answer + suffix,
-                "citations": citations,
-                "grounded": True,
-                "success": True,
-                "total_tokens_used": 0,
-                "steps": [{"node": "generate_answer", "success": True, "duration_ms": duration}],
-            }
 
         result, tokens, grounded = self._build_answer.execute(
             question,

@@ -32,6 +32,20 @@ def _extract_json(text: str) -> dict:
     return {"answer": cleaned, "citations": [], "confidence": 0.5}
 
 
+def _normalize_citations(raw) -> list[dict]:
+    if not raw:
+        return []
+    if isinstance(raw, str):
+        return [{"document_name": raw}]
+    out: list[dict] = []
+    for item in raw:
+        if isinstance(item, dict):
+            out.append(item)
+        elif isinstance(item, str) and item.strip():
+            out.append({"document_name": item.strip()})
+    return out
+
+
 def _to_answer_output(data: dict) -> AnswerOutput:
     answer = data.get("answer") or data.get("response") or ""
     answer = str(answer).strip()
@@ -46,7 +60,7 @@ def _to_answer_output(data: dict) -> AnswerOutput:
         raise ValueError("LLM returned empty answer")
     return AnswerOutput(
         answer=str(answer),
-        citations=data.get("citations") or [],
+        citations=_normalize_citations(data.get("citations")),
         confidence=float(data.get("confidence") or 0.0),
     )
 
@@ -60,15 +74,19 @@ class LangChainLlmAdapter:
         temperature: float,
         max_tokens: int,
         timeout: int,
+        callbacks: list | None = None,
     ) -> None:
-        self._llm = ChatOpenAI(
-            base_url=base_url,
-            api_key=api_key,
-            model=model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            timeout=timeout,
-        )
+        kwargs: dict = {
+            "base_url": base_url,
+            "api_key": api_key,
+            "model": model,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "timeout": timeout,
+        }
+        if callbacks:
+            kwargs["callbacks"] = callbacks
+        self._llm = ChatOpenAI(**kwargs)
 
     def _invoke_tokens(self, messages: list) -> tuple[str, int]:
         resp = self._llm.invoke(messages)

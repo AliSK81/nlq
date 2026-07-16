@@ -16,16 +16,25 @@ def focus_text(text: str, question: str, limit: int) -> str:
         if idx >= 0 and (anchor < 0 or idx < anchor):
             anchor = idx
 
+    prefix = "...[truncated]...\n"
+    suffix = "\n...[truncated]..."
+
     if anchor < 0:
-        return text[:limit] + "\n...[truncated]..."
+        body_limit = max(0, limit - len(suffix))
+        return text[:body_limit] + suffix
 
     start = max(0, anchor - limit // 4)
     end = min(len(text), start + limit)
+    needs_prefix = start > 0
+    needs_suffix = end < len(text)
+    overhead = (len(prefix) if needs_prefix else 0) + (len(suffix) if needs_suffix else 0)
+    body_limit = max(0, limit - overhead)
+    end = min(len(text), start + body_limit)
     snippet = text[start:end]
-    if start > 0:
-        snippet = "...[truncated]...\n" + snippet
+    if needs_prefix:
+        snippet = prefix + snippet
     if end < len(text):
-        snippet += "\n...[truncated]..."
+        snippet += suffix
     return snippet
 
 

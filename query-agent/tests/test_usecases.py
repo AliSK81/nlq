@@ -30,3 +30,18 @@ def test_build_answer_abstain():
     answer, tokens, grounded = BuildAnswer(FakeLlm()).execute("What is revenue?", [])
     assert grounded is False
     assert "could not find" in answer.answer.lower()
+
+
+def test_build_answer_low_confidence_abstains():
+    class LowConfidenceLlm(FakeLlm):
+        def build_answer(self, question, hits, memory_context):
+            from app.domain.intents import AnswerOutput
+
+            return AnswerOutput(answer="maybe", citations=[], confidence=0.1), 10
+
+    hits = [{"document_name": "report.pdf", "page": 1, "text": "x", "chunk_id": "c1"}]
+    answer, tokens, grounded = BuildAnswer(LowConfidenceLlm(), min_confidence=0.3).execute(
+        "What is revenue?", hits
+    )
+    assert grounded is False
+    assert "could not find" in answer.answer.lower()

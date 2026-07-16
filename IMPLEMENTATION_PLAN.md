@@ -10,9 +10,9 @@
 
 Three services we write + off-the-shelf open-source infrastructure, wired by Docker Compose:
 
-1. **Web UI** — [Open WebUI](https://github.com/open-webui/open-webui) (unmodified). Talks to the orchestrator via the OpenAI-compatible API. This is the only UI the end user sees for chat.
-2. **Agent Orchestrator** (`orchestrator/`) — Python, **FastAPI + LangGraph + LangChain + MCP client**. Exposes an OpenAI-compatible `/v1/chat/completions`. Runs a deterministic multi-node graph: classify → retrieve (via MCP) → generate grounded answer → (bounded refine loop). Mirrors the reference NLQ flow, adapted from SQL to **file content retrieval**.
-3. **MCP File Platform Server** (`mcp-platform/`) — Python, **FastAPI + MCP (JSON-RPC 2.0 over `POST /mcp`)**. Owns ingestion (upload → extract → chunk → embed → index) and exposes retrieval **MCP tools** (`search_documents`, `list_documents`, `fetch_chunk`). Talks to a pluggable **extractor microservice** and a **vector DB**.
+1. **Web UI** — [Open WebUI](https://github.com/open-webui/open-webui) (unmodified). Talks to **query-agent** via the OpenAI-compatible API.
+2. **Query Agent** (`query-agent/`) — Python, **FastAPI + LangGraph + LangChain**. Exposes OpenAI-compatible `/v1/chat/completions`. Deterministic graph: classify → retrieve (via document-index **REST**) → generate grounded answer → (bounded refine loop).
+3. **Document Index** (`document-index/`) — Python, **FastAPI**. Owns ingestion (upload → extract → chunk → embed → index) and exposes REST search plus optional JSON-RPC `POST /tools`. Talks to Docling/Tika, Qdrant, and Postgres.
 
 Infrastructure (all OSS containers):
 
