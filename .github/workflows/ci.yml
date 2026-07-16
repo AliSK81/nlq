@@ -76,6 +76,75 @@ jobs:
           pip install -e "query-agent/[eval]" || pip install deepeval
           pytest evals/test_rag_quality.py -q
 
+  perf-k6:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write Compose .env
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+        run: |
+          cp .env.example .env
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          path = Path(".env")
+          replacements = {
+              "LLM_API_KEY": os.environ.get("LLM_API_KEY") or "",
+              "LLM_BASE_URL": os.environ.get("LLM_BASE_URL") or "https://api.openai.com/v1",
+              "LLM_MODEL": os.environ.get("LLM_MODEL") or "gpt-4o-mini",
+          }
+          if not replacements["LLM_API_KEY"]:
+              raise SystemExit(
+                  "LLM_API_KEY secret is required for perf-k6 (search+chat against a live stack)"
+              )
+          lines = []
+          for line in path.read_text(encoding="utf-8").splitlines():
+              if "=" in line and not line.lstrip().startswith("#"):
+                  key, _, _ = line.partition("=")
+                  if key in replacements:
+                      lines.append(f"{key}={replacements[key]}")
+                      continue
+              lines.append(line)
+          path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+
+      - name: Build and start CI stack
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build \
+            postgres qdrant tika document-index query-agent
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Health, ingest fixture, smoke chat
+        run: |
+          pip install httpx
+          python scripts/compose_smoke.py --timeout 360
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 CI profile
+        env:
+          SEARCH_URL: http://localhost:8080/search
+          CHAT_URL: http://localhost:8000/v1/chat/completions
+        run: k6 run -e K6_PROFILE=ci perf/k6/rag_load.js
+
+      - name: Compose logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --no-color --tail=200
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v
+
   lint:
     runs-on: ubuntu-latest
     steps:

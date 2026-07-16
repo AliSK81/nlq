@@ -1,0 +1,20 @@
+# CI overlay: slim stack for k6 (no WebUI/docling). Use with:
+#   docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build \
+#     postgres qdrant tika document-index query-agent
+services:
+  document-index:
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      tika:
+        condition: service_started
+    environment:
+      EXTRACTOR: tika
+      TIKA_URL: http://tika:9998
+      RERANKER: passthrough
+
+  query-agent:
+    environment:
+      DOCUMENT_INDEX_URL: http://document-index:8080
