@@ -38,11 +38,23 @@ services:
       EXTRACTOR: tika
       TIKA_URL: http://tika:9998
       RERANKER: passthrough
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
 
   query-agent:
     depends_on:
       document-index:
-        condition: service_started
+        condition: service_healthy
       mock-llm:
         condition: service_healthy
     environment:
@@ -50,3 +62,15 @@ services:
       LLM_BASE_URL: http://mock-llm:8080/v1
       LLM_API_KEY: mock
       LLM_MODEL: mock
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s

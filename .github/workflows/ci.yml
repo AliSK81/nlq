@@ -91,6 +91,8 @@ jobs:
         run: |
           docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build \
             postgres qdrant tika mock-llm document-index query-agent
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml \
+            up --wait --wait-timeout 600 mock-llm document-index query-agent
 
       - uses: actions/setup-python@v5
         with:
@@ -99,7 +101,7 @@ jobs:
       - name: Health, ingest fixture, smoke chat
         run: |
           pip install httpx
-          python scripts/compose_smoke.py --timeout 360
+          python scripts/compose_smoke.py --timeout 480
 
       - name: Setup k6
         uses: grafana/setup-k6-action@v1

@@ -14,21 +14,31 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "_test_upload.txt"
 
 
+def _wait_http_ok(client: httpx.Client, name: str, url: str, deadline: float) -> None:
+    last: Exception | None = None
+    while time.time() < deadline:
+        try:
+            r = client.get(url)
+            r.raise_for_status()
+            print(f"ok {name}")
+            return
+        except Exception as exc:  # noqa: BLE001 — retry until deadline
+            last = exc
+            time.sleep(2)
+    raise RuntimeError(f"timeout waiting for {name} at {url}: {last}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--index-url", default="http://localhost:8080")
     parser.add_argument("--agent-url", default="http://localhost:8000")
     parser.add_argument("--timeout", type=int, default=180)
     args = parser.parse_args()
+    deadline = time.time() + args.timeout
 
     with httpx.Client(timeout=30) as client:
-        for name, url in (
-            ("document-index", f"{args.index_url}/health"),
-            ("query-agent", f"{args.agent_url}/health"),
-        ):
-            r = client.get(url)
-            r.raise_for_status()
-            print(f"ok {name}")
+        _wait_http_ok(client, "document-index", f"{args.index_url}/health", deadline)
+        _wait_http_ok(client, "query-agent", f"{args.agent_url}/health", deadline)
 
         if not FIXTURE.exists():
             FIXTURE.write_text("Revenue grew 20% in Q3.\n", encoding="utf-8")
@@ -51,11 +61,11 @@ def main() -> int:
             doc_id = r.json()["document_id"]
             print(f"ingested {doc_id}")
 
-        deadline = time.time() + args.timeout
         while time.time() < deadline:
             st = client.get(f"{args.index_url}/documents/{doc_id}")
             st.raise_for_status()
             status = st.json()["status"]
+            print(f"ingest status={status}")
             if status == "INDEXED":
                 break
             if status == "FAILED":
@@ -74,7 +84,9 @@ def main() -> int:
                 "stream": False,
             },
         )
-        chat.raise_for_status()
+        if chat.status_code >= 400:
+            print("chat failed", chat.status_code, chat.text[:500])
+            chat.raise_for_status()
         body = chat.json()
         content = body["choices"][0]["message"]["content"]
         reasoning = body["choices"][0]["message"].get("reasoning_content", "")
