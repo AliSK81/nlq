@@ -25,6 +25,8 @@ env/
 .coverage
 htmlcov/
 .hypothesis/
+.deepeval/
+_test_upload.txt
 
 # Logs & temp
 *.log
