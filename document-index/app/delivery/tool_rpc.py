@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from app.domain.document import DocumentId
 from app.domain.errors import ChunkNotFoundError, DocumentNotFoundError
+from app.usecases.ports import DocumentRepo
 from app.usecases.fetch_chunk import FetchChunk, FetchChunkRequest
 from app.usecases.list_documents import ListDocuments, ListDocumentsRequest
 from app.usecases.search_documents import SearchDocuments, SearchDocumentsRequest
@@ -40,6 +43,17 @@ TOOL_SCHEMAS = [
         },
     },
     {
+        "name": "list_document_chunks",
+        "description": "List all indexed chunks for a document in ordinal order",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "document_id": {"type": "string"},
+            },
+            "required": ["document_id"],
+        },
+    },
+    {
         "name": "fetch_chunk",
         "description": "Fetch a chunk with neighbor context",
         "inputSchema": {
@@ -65,6 +79,7 @@ def create_tool_router(
     search: SearchDocuments,
     list_docs: ListDocuments,
     fetch_chunk: FetchChunk,
+    repo: DocumentRepo,
 ) -> APIRouter:
     router = APIRouter()
 
@@ -123,6 +138,29 @@ def create_tool_router(
                         for d in resp.documents
                     ],
                     "total": resp.total,
+                }
+            )
+
+        if name == "list_document_chunks":
+            doc = repo.get(DocumentId(uuid.UUID(args["document_id"])))
+            if not doc:
+                return _tool_result({"error": "Document not found"}, is_error=True)
+            rows = repo.get_chunks(doc.id)
+            return _tool_result(
+                {
+                    "document_id": str(doc.id),
+                    "document_name": doc.name,
+                    "chunks": [
+                        {
+                            "chunk_id": str(c.id),
+                            "ordinal": c.ordinal,
+                            "page": c.page,
+                            "section_path": c.section_path,
+                            "text": c.text,
+                        }
+                        for c in rows
+                    ],
+                    "total": len(rows),
                 }
             )
 

@@ -6,11 +6,12 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from app.domain.document import DocumentId, IngestionStatus
-from app.domain.errors import DocumentNotFoundError, DuplicateDocumentError
+from app.domain.errors import ChunkNotFoundError, DocumentNotFoundError, DuplicateDocumentError
 from app.usecases.fetch_chunk import FetchChunk, FetchChunkRequest
 from app.usecases.ingest_document import IngestDocument
 from app.usecases.list_documents import ListDocuments, ListDocumentsRequest
 from app.usecases.ports import DocumentRepo, VectorIndex
+from app.usecases.search_documents import SearchDocuments, SearchDocumentsRequest
 
 
 class IngestResponse(BaseModel):
@@ -28,10 +29,60 @@ class DocumentDetail(BaseModel):
     chunk_count: int
 
 
+class SearchRequest(BaseModel):
+    query: str
+    top_k: int = 8
+    min_score: float = 0.3
+    document_ids: list[str] | None = None
+    tenant_id: str = "default"
+
+
+class SearchHitResponse(BaseModel):
+    chunk_id: str
+    document_id: str
+    document_name: str
+    page: int | None
+    section_path: str | None
+    score: float
+    text: str
+
+
+class SearchResponse(BaseModel):
+    hits: list[SearchHitResponse]
+    total: int
+
+
+class ChunkDetail(BaseModel):
+    chunk_id: str
+    document_id: str
+    document_name: str
+    page: int | None
+    section_path: str | None
+    text: str
+    context_before: str | None
+    context_after: str | None
+
+
+class DocumentChunkRow(BaseModel):
+    chunk_id: str
+    ordinal: int
+    page: int | None
+    section_path: str | None
+    text: str
+
+
+class DocumentChunksResponse(BaseModel):
+    document_id: str
+    document_name: str
+    chunks: list[DocumentChunkRow]
+    total: int
+
+
 def create_rest_router(
     ingest: IngestDocument,
     list_docs: ListDocuments,
     fetch_chunk: FetchChunk,
+    search: SearchDocuments,
     repo: DocumentRepo,
     vector_index: VectorIndex,
 ) -> APIRouter:
@@ -94,5 +145,71 @@ def create_rest_router(
             raise HTTPException(status_code=404, detail="Document not found")
         vector_index.delete_by_document(doc_id)
         repo.delete(doc_id)
+
+    @router.post("/search")
+    def search_documents(body: SearchRequest) -> SearchResponse:
+        resp = search.execute(
+            SearchDocumentsRequest(
+                query=body.query,
+                tenant_id=body.tenant_id,
+                top_k=body.top_k,
+                min_score=body.min_score,
+                document_ids=body.document_ids,
+            )
+        )
+        return SearchResponse(
+            hits=[
+                SearchHitResponse(
+                    chunk_id=h.chunk_id,
+                    document_id=h.document_id,
+                    document_name=h.document_name,
+                    page=h.page,
+                    section_path=h.section_path,
+                    score=h.score,
+                    text=h.text,
+                )
+                for h in resp.hits
+            ],
+            total=resp.total,
+        )
+
+    @router.get("/documents/{document_id}/chunks")
+    def list_document_chunks(document_id: str) -> DocumentChunksResponse:
+        doc = repo.get(DocumentId(uuid.UUID(document_id)))
+        if not doc:
+            raise HTTPException(status_code=404, detail="Document not found")
+        rows = repo.get_chunks(doc.id)
+        return DocumentChunksResponse(
+            document_id=str(doc.id),
+            document_name=doc.name,
+            chunks=[
+                DocumentChunkRow(
+                    chunk_id=str(c.id),
+                    ordinal=c.ordinal,
+                    page=c.page,
+                    section_path=c.section_path,
+                    text=c.text,
+                )
+                for c in rows
+            ],
+            total=len(rows),
+        )
+
+    @router.get("/chunks/{chunk_id}")
+    def get_chunk(chunk_id: str, neighbors: int = 1) -> ChunkDetail:
+        try:
+            resp = fetch_chunk.execute(FetchChunkRequest(chunk_id=chunk_id, neighbors=neighbors))
+        except ChunkNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return ChunkDetail(
+            chunk_id=resp.chunk_id,
+            document_id=resp.document_id,
+            document_name=resp.document_name,
+            page=resp.page,
+            section_path=resp.section_path,
+            text=resp.text,
+            context_before=resp.context_before,
+            context_after=resp.context_after,
+        )
 
     return router

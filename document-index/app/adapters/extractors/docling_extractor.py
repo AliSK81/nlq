@@ -31,9 +31,8 @@ class DoclingExtractor:
     def extract(self, blob: bytes, filename: str, mime_type: str) -> ExtractedDoc:
         with httpx.Client(timeout=self._timeout) as client:
             response = client.post(
-                f"{self._base_url}/v1alpha/convert/file",
+                f"{self._base_url}/v1/convert/file",
                 files={"files": (filename, blob, mime_type)},
-                data={"to_formats": "md"},
             )
             response.raise_for_status()
             data = response.json()

@@ -43,8 +43,8 @@ async def lifespan(app: FastAPI):
     list_docs = ListDocuments(repo)
     fetch_chunk = FetchChunk(repo)
 
-    app.include_router(create_rest_router(ingest, list_docs, fetch_chunk, repo, vector_index))
-    app.include_router(create_tool_router(search, list_docs, fetch_chunk))
+    app.include_router(create_rest_router(ingest, list_docs, fetch_chunk, search, repo, vector_index))
+    app.include_router(create_tool_router(search, list_docs, fetch_chunk, repo))
 
     _worker = IngestionWorker(
         repo, extractor, chunker, embedder, vector_index,

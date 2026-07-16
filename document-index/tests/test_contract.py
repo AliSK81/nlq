@@ -24,8 +24,8 @@ def client():
     fetch_chunk = FetchChunk(repo)
 
     app = FastAPI()
-    app.include_router(create_rest_router(ingest, list_docs, fetch_chunk, repo, index))
-    app.include_router(create_tool_router(search, list_docs, fetch_chunk))
+    app.include_router(create_rest_router(ingest, list_docs, fetch_chunk, search, repo, index))
+    app.include_router(create_tool_router(search, list_docs, fetch_chunk, repo))
     return TestClient(app)
 
 
@@ -45,7 +45,7 @@ def test_tools_list(client):
     data = resp.json()
     tools = data["result"]["tools"]
     names = {t["name"] for t in tools}
-    assert names == {"search_documents", "list_documents", "fetch_chunk"}
+    assert names == {"search_documents", "list_documents", "list_document_chunks", "fetch_chunk"}
 
 
 def test_search_documents_contract(client):
@@ -68,3 +68,16 @@ def test_search_documents_contract(client):
     payload = json.loads(result["content"][0]["text"])
     assert "hits" in payload
     assert "total" in payload
+
+
+def test_search_rest(client):
+    resp = client.post("/search", json={"query": "test", "top_k": 5})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "hits" in data
+    assert "total" in data
+
+
+def test_get_chunk_not_found(client):
+    resp = client.get("/chunks/00000000-0000-0000-0000-000000000001")
+    assert resp.status_code == 404

@@ -11,6 +11,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    Uuid,
     create_engine,
     select,
     update,
@@ -30,7 +31,7 @@ class Base(DeclarativeBase):
 class DocumentRow(Base):
     __tablename__ = "documents"
 
-    id = Column(String, primary_key=True)
+    id = Column(Uuid(as_uuid=True), primary_key=True)
     tenant_id = Column(String, nullable=False, default="default")
     name = Column(String, nullable=False)
     mime_type = Column(String, nullable=False)
@@ -47,8 +48,8 @@ class DocumentRow(Base):
 class ChunkRow(Base):
     __tablename__ = "chunks"
 
-    id = Column(String, primary_key=True)
-    document_id = Column(String, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    id = Column(Uuid(as_uuid=True), primary_key=True)
+    document_id = Column(Uuid(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
     tenant_id = Column(String, nullable=False, default="default")
     ordinal = Column(Integer, nullable=False)
     text = Column(Text, nullable=False)
@@ -61,17 +62,21 @@ class ChunkRow(Base):
 class IngestionJobRow(Base):
     __tablename__ = "ingestion_jobs"
 
-    id = Column(String, primary_key=True)
-    document_id = Column(String, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    id = Column(Uuid(as_uuid=True), primary_key=True)
+    document_id = Column(Uuid(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
     stage = Column(String, nullable=False, default="PENDING")
     attempts = Column(Integer, nullable=False, default=0)
     last_error = Column(Text)
     updated_at = Column(DateTime(timezone=True), nullable=False)
 
 
+def _as_uuid(value: DocumentId | ChunkId | uuid.UUID) -> uuid.UUID:
+    return value if isinstance(value, uuid.UUID) else uuid.UUID(str(value))
+
+
 def _row_to_document(row: DocumentRow) -> Document:
     return Document(
-        id=DocumentId(uuid.UUID(row.id)),
+        id=DocumentId(row.id),
         tenant_id=row.tenant_id,
         name=row.name,
         mime_type=row.mime_type,
@@ -88,8 +93,8 @@ def _row_to_document(row: DocumentRow) -> Document:
 
 def _row_to_chunk(row: ChunkRow) -> Chunk:
     return Chunk(
-        id=ChunkId(uuid.UUID(row.id)),
-        document_id=DocumentId(uuid.UUID(row.document_id)),
+        id=ChunkId(row.id),
+        document_id=DocumentId(row.document_id),
         tenant_id=row.tenant_id,
         ordinal=row.ordinal,
         text=row.text,
@@ -112,7 +117,7 @@ class PostgresDocumentRepo:
         with self._session() as session:
             session.add(
                 DocumentRow(
-                    id=str(document.id),
+                    id=_as_uuid(document.id),
                     tenant_id=document.tenant_id,
                     name=document.name,
                     mime_type=document.mime_type,
@@ -128,8 +133,8 @@ class PostgresDocumentRepo:
             )
             session.add(
                 IngestionJobRow(
-                    id=str(uuid.uuid4()),
-                    document_id=str(document.id),
+                    id=uuid.uuid4(),
+                    document_id=_as_uuid(document.id),
                     stage="PENDING",
                     attempts=0,
                     updated_at=datetime.now(timezone.utc),
@@ -139,7 +144,7 @@ class PostgresDocumentRepo:
 
     def get(self, document_id: DocumentId) -> Document | None:
         with self._session() as session:
-            row = session.get(DocumentRow, str(document_id))
+            row = session.get(DocumentRow, _as_uuid(document_id))
             return _row_to_document(row) if row else None
 
     def get_by_hash(self, tenant_id: str, content_hash: str) -> Document | None:
@@ -155,7 +160,7 @@ class PostgresDocumentRepo:
         with self._session() as session:
             session.execute(
                 update(DocumentRow)
-                .where(DocumentRow.id == str(document.id))
+                .where(DocumentRow.id == _as_uuid(document.id))
                 .values(
                     status=document.status.value,
                     error=document.error,
@@ -168,7 +173,7 @@ class PostgresDocumentRepo:
 
     def delete(self, document_id: DocumentId) -> None:
         with self._session() as session:
-            row = session.get(DocumentRow, str(document_id))
+            row = session.get(DocumentRow, _as_uuid(document_id))
             if row:
                 session.delete(row)
                 session.commit()
@@ -191,8 +196,8 @@ class PostgresDocumentRepo:
             for chunk in chunks:
                 session.add(
                     ChunkRow(
-                        id=str(chunk.id),
-                        document_id=str(chunk.document_id),
+                        id=_as_uuid(chunk.id),
+                        document_id=_as_uuid(chunk.document_id),
                         tenant_id=chunk.tenant_id,
                         ordinal=chunk.ordinal,
                         text=chunk.text,
@@ -208,14 +213,14 @@ class PostgresDocumentRepo:
         with self._session() as session:
             stmt = (
                 select(ChunkRow)
-                .where(ChunkRow.document_id == str(document_id))
+                .where(ChunkRow.document_id == _as_uuid(document_id))
                 .order_by(ChunkRow.ordinal)
             )
             return [_row_to_chunk(r) for r in session.scalars(stmt).all()]
 
     def get_chunk(self, chunk_id: ChunkId) -> Chunk | None:
         with self._session() as session:
-            row = session.get(ChunkRow, str(chunk_id))
+            row = session.get(ChunkRow, _as_uuid(chunk_id))
             return _row_to_chunk(row) if row else None
 
     def get_chunk_neighbors(
@@ -234,7 +239,7 @@ class PostgresDocumentRepo:
 
     def count_chunks(self, document_id: DocumentId) -> int:
         with self._session() as session:
-            stmt = select(ChunkRow).where(ChunkRow.document_id == str(document_id))
+            stmt = select(ChunkRow).where(ChunkRow.document_id == _as_uuid(document_id))
             return len(session.scalars(stmt).all())
 
     def claim_pending_job(self) -> DocumentId | None:
@@ -252,12 +257,12 @@ class PostgresDocumentRepo:
             job.attempts += 1
             job.updated_at = datetime.now(timezone.utc)
             session.commit()
-            return DocumentId(uuid.UUID(job.document_id))
+            return DocumentId(job.document_id)
 
     def mark_job_failed(self, document_id: DocumentId, error: str) -> None:
         with self._session() as session:
             stmt = select(IngestionJobRow).where(
-                IngestionJobRow.document_id == str(document_id)
+                IngestionJobRow.document_id == _as_uuid(document_id)
             )
             job = session.scalar(stmt)
             if job:
