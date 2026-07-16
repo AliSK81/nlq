@@ -1,18 +1,12 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
 
 from app.domain.chunk import Chunk, ChunkId
 from app.domain.document import Document, DocumentId, IngestionStatus
 from app.usecases.ports import (
-    DocumentRepo,
-    DocumentSummary,
-    ExtractedBlock,
-    ExtractedDoc,
     SearchHit,
     SearchResult,
-    VectorIndex,
 )
 
 

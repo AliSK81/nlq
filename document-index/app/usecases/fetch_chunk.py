@@ -4,7 +4,6 @@ import uuid
 from dataclasses import dataclass
 
 from app.domain.chunk import ChunkId
-from app.domain.document import DocumentId
 from app.domain.errors import ChunkNotFoundError, DocumentNotFoundError
 from app.usecases.ports import DocumentRepo
 

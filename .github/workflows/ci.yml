@@ -76,16 +76,6 @@ jobs:
           pip install -e "query-agent/[eval]" || pip install deepeval
           pytest evals/test_rag_quality.py -q
 
-  perf-k6:
-    runs-on: ubuntu-latest
-    if: false
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run k6 (enable when stack is up in CI)
-        uses: grafana/k6-action@v0.3.1
-        with:
-          filename: perf/k6/rag_load.js
-
   lint:
     runs-on: ubuntu-latest
     steps:

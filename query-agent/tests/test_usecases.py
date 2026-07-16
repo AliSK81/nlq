@@ -1,8 +1,7 @@
 from app.domain.intents import Intent
 from app.usecases.build_answer import BuildAnswer
 from app.usecases.classify import ClassifyIntent
-from app.usecases.contextual_search import citations_from_memory, document_ids_for_memory
-from tests.fakes import FakeLlm, FakeRetrieval
+from tests.fakes import FakeLlm
 
 
 def test_classify_with_fake_llm():

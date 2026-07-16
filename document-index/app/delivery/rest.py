@@ -5,8 +5,8 @@ import uuid
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from app.domain.document import DocumentId, IngestionStatus
-from app.domain.errors import ChunkNotFoundError, DocumentNotFoundError, DuplicateDocumentError
+from app.domain.document import DocumentId
+from app.domain.errors import ChunkNotFoundError, DuplicateDocumentError
 from app.usecases.fetch_chunk import FetchChunk, FetchChunkRequest
 from app.usecases.ingest_document import IngestDocument
 from app.usecases.list_documents import ListDocuments, ListDocumentsRequest

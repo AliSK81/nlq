@@ -5,7 +5,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.domain.document import Document, DocumentId, IngestionStatus
+from app.domain.document import Document, IngestionStatus
 from app.domain.errors import DuplicateDocumentError
 from app.usecases.ports import DocumentRepo
 

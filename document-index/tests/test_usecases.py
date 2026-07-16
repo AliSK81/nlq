@@ -18,7 +18,6 @@ def test_ingest_document(tmp_path):
 
 
 def test_search_documents():
-    repo = FakeRepo()
     embedder = FakeEmbedder()
     index = FakeVectorIndex()
     doc_id = DocumentId(uuid.uuid4())

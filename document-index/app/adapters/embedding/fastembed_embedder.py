@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastembed import SparseTextEmbedding, TextEmbedding
 
-from app.usecases.ports import Embedder, SparseEmbedding
+from app.usecases.ports import SparseEmbedding
 
 
 class FastembedEmbedder:

@@ -14,7 +14,6 @@ from app.prompts.chitchat import CHITCHAT_REPLIES, CHITCHAT_WITH_DOCS
 from app.prompts.classification import CLASSIFICATION_SYSTEM, CLASSIFICATION_USER
 from app.prompts.query_prep import QUERY_PREP_SYSTEM, QUERY_PREP_USER
 from app.usecases.context_budget import prepare_hits
-from app.usecases.ports import LlmPort
 
 
 def _extract_json(text: str) -> dict:

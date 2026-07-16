@@ -20,8 +20,6 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.domain.chunk import Chunk, ChunkId
 from app.domain.document import Document, DocumentId, IngestionStatus
-from app.domain.errors import DocumentNotFoundError
-from app.usecases.ports import DocumentRepo
 
 
 class Base(DeclarativeBase):

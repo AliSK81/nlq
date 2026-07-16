@@ -4,7 +4,7 @@ from chonkie import RecursiveChunker, TokenChunker
 
 from app.domain.chunk import Chunk
 from app.domain.document import DocumentId
-from app.usecases.ports import Chunker, ExtractedBlock, ExtractedDoc
+from app.usecases.ports import ExtractedBlock, ExtractedDoc
 
 
 class ChonkieChunker:

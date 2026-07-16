@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import httpx
 
-from app.usecases.ports import ExtractedBlock, ExtractedDoc, Extractor
+from app.usecases.ports import ExtractedBlock, ExtractedDoc
 
 
 class TikaExtractor:
