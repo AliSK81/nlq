@@ -7,11 +7,12 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from app.config import settings
-from app.domain.intents import AnswerOutput, ClassificationOutput, Intent
+from app.domain.intents import AnswerOutput, ClassificationOutput, Intent, QueryPrepOutput
 from app.prompts.answer_system import ANSWER_SYSTEM
 from app.prompts.answer_user import ANSWER_USER
 from app.prompts.chitchat import CHITCHAT_REPLIES, CHITCHAT_WITH_DOCS
 from app.prompts.classification import CLASSIFICATION_SYSTEM, CLASSIFICATION_USER
+from app.prompts.query_prep import QUERY_PREP_SYSTEM, QUERY_PREP_USER
 from app.usecases.context_budget import prepare_hits
 from app.usecases.ports import LlmPort
 
@@ -33,7 +34,15 @@ def _extract_json(text: str) -> dict:
 
 def _to_answer_output(data: dict) -> AnswerOutput:
     answer = data.get("answer") or data.get("response") or ""
-    if not str(answer).strip():
+    answer = str(answer).strip()
+    if answer.startswith("{") and '"answer"' in answer:
+        try:
+            nested = json.loads(answer)
+            if isinstance(nested, dict) and nested.get("answer"):
+                answer = str(nested["answer"]).strip()
+        except json.JSONDecodeError:
+            pass
+    if not answer:
         raise ValueError("LLM returned empty answer")
     return AnswerOutput(
         answer=str(answer),
@@ -112,6 +121,52 @@ class LangChainLlmAdapter:
             message_text=data.get("message_text"),
         ), tokens
 
+    def prepare_query(
+        self,
+        question: str,
+        memory_context: str,
+        document_summary: str = "",
+    ) -> tuple[QueryPrepOutput, int]:
+        if not (memory_context or "").strip() and not (document_summary or "").strip():
+            return QueryPrepOutput(standalone_question=question, search_query=question), 0
+
+        messages = [
+            SystemMessage(content=QUERY_PREP_SYSTEM),
+            HumanMessage(
+                content=QUERY_PREP_USER.format(
+                    document_summary=document_summary or "(unknown)",
+                    memory_context=memory_context or "(none)",
+                    question=question,
+                )
+            ),
+        ]
+        text, tokens = self._invoke_tokens(messages)
+        data = _extract_json(text)
+        standalone = str(data.get("standalone_question") or question).strip() or question
+        search = str(data.get("search_query") or standalone).strip() or standalone
+        scope = str(data.get("document_scope") or "all").strip().lower()
+        if scope not in ("all", "cited_only"):
+            scope = "all"
+        extra = data.get("extra_search_queries") or []
+        if isinstance(extra, str):
+            extra = [extra]
+        extra_queries = [str(q).strip() for q in extra if str(q).strip()]
+        multi = bool(data.get("requires_multi_document", False))
+        mode = str(data.get("retrieval_mode") or "semantic").strip().lower()
+        if mode not in ("semantic", "full_document"):
+            mode = "semantic"
+        target = data.get("target_document_name")
+        target_name = str(target).strip() if target else None
+        return QueryPrepOutput(
+            standalone_question=standalone,
+            search_query=search,
+            document_scope=scope,
+            extra_search_queries=extra_queries,
+            requires_multi_document=multi,
+            retrieval_mode=mode,
+            target_document_name=target_name,
+        ), tokens
+
     def build_answer(
         self,
         question: str,
@@ -135,12 +190,19 @@ class LangChainLlmAdapter:
 
         raise last_error or ValueError("LLM returned empty response")
 
-    def reformulate_query(self, question: str, refine_count: int) -> tuple[str, int]:
+    def reformulate_query(
+        self,
+        question: str,
+        refine_count: int,
+        memory_context: str = "",
+    ) -> tuple[str, int]:
         messages = [
             HumanMessage(
                 content=(
                     f"Rephrase this search query for document retrieval (attempt {refine_count + 1}). "
-                    f"Return only the new query, no explanation.\n\nQuery: {question}"
+                    f"Return only the new query, no explanation.\n\n"
+                    f"Conversation:\n{memory_context or '(none)'}\n\n"
+                    f"Query: {question}"
                 )
             ),
         ]

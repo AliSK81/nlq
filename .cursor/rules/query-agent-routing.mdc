@@ -1,0 +1,48 @@
+---
+description: query-agent intent and retrieval — LLM-driven, no hardcoded keyword rules
+globs: query-agent/**/*.py
+alwaysApply: false
+---
+
+# query-agent routing
+
+This service is a document Q&A agent. **Do not encode domain or language logic as regex/keyword lists.**
+
+## Do not add
+
+- Regex intent classifiers (`FILE_QUERY_PATTERNS`, greeting lists, `resume`/`cv` keywords, etc.)
+- Hardcoded keyword fallbacks in `graph/nodes.py`
+- Domain-specific answer rules in prompts (e.g. "for years of experience, infer …")
+- Hardcoded URLs or file-type heuristics tied to one user's documents
+
+## Use instead
+
+| Concern | Where |
+|---------|--------|
+| Intent | LLM via `prompts/classification.py` → `ClassifyIntent` |
+| Follow-ups / pronouns / search phrasing | LLM via `prompts/query_prep.py` → `LlmPort.prepare_query()` — includes indexed doc names, `document_scope`, and optional `extra_search_queries` for cross-document comparisons |
+| Citation scoping | Apply `document_ids` filter only when `document_scope` is `cited_only` (LLM-decided), not on every turn |
+
+## Agent policy (allowed, not keywords)
+
+- On classify failure or `off_topic`, prefer `file_query` so the agent tries retrieval before refusing.
+- `inventory` intent lists indexed docs via `list_documents` — not semantic search.
+
+## When changing behavior
+
+1. Update the **prompt** first (`classification.py`, `query_prep.py`, or `answer_system.py`).
+2. Extend `LlmPort` + `LangChainLlmAdapter` if a new LLM step is needed.
+3. Keep `graph/nodes.py` as orchestration only — search, refine, generate.
+4. Add tests with `FakeLlm` in `tests/fakes.py`; do not rely on live LLM in unit tests.
+
+## Examples
+
+```python
+# BAD — brittle, English-only, breaks on new doc types
+if "resume" in question.lower():
+    return search("resume")
+
+# GOOD — model resolves context from conversation history
+prepared, _ = llm.prepare_query(question, memory_context)
+hits = retrieval.search(prepared.search_query, ...)
+```

@@ -20,6 +20,8 @@ class AgentState(TypedDict, total=False):
     refine_count: int
     should_refine: str | None
     search_query: str | None
+    effective_question: str | None
+    retrieval_mode: str | None
     answer_text: str | None
     citations: list[dict] | None
     grounded: bool

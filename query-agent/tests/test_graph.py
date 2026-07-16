@@ -53,3 +53,35 @@ def test_abstain_on_empty_hits():
     result = nodes.generate_answer_node(state)
     assert result["grounded"] is False
     assert "could not find" in result["answer_text"].lower()
+
+
+def test_inventory_node():
+    docs = [{"name": "resume.pdf", "chunk_count": 4}]
+    nodes = GraphNodes(
+        ClassifyIntent(FakeLlm()),
+        BuildAnswer(FakeLlm()),
+        FakeLlm(),
+        FakeRetrieval(documents=docs),
+    )
+    result = nodes.chitchat_node({"question": "how many files?", "intent": Intent.INVENTORY.value})
+    assert "1" in result["answer_text"]
+    assert "resume.pdf" in result["answer_text"]
+
+
+def test_follow_up_uses_prepare_query():
+    hits = [{"document_name": "resume.pdf", "text": "Nov 2022 Present", "chunk_id": "1"}]
+    nodes = GraphNodes(
+        ClassifyIntent(FakeLlm()),
+        BuildAnswer(FakeLlm()),
+        FakeLlm(),
+        FakeRetrieval(hits),
+    )
+    state = {
+        "question": "how many years of experience does he have",
+        "memory_context": "user: who is ali\nassistant: Ali Ebrahimi is a software engineer.",
+        "config": {"top_k": 8, "min_score": 0.3, "max_refines": 0},
+        "request_auth": {},
+    }
+    result = nodes.retrieve_node(state)
+    assert "Ali" in result["effective_question"]
+    assert len(result["hits"]) >= 1

@@ -78,10 +78,14 @@ class DocumentIndexClient:
         top_k: int,
         min_score: float,
         auth: dict[str, str | None],
+        document_ids: list[str] | None = None,
     ) -> list[dict]:
+        args: dict = {"query": query, "top_k": top_k, "min_score": min_score}
+        if document_ids:
+            args["document_ids"] = document_ids
         data = self._call_tool(
             "search_documents",
-            {"query": query, "top_k": top_k, "min_score": min_score},
+            args,
             auth,
         )
         return data.get("hits", [])
@@ -89,3 +93,19 @@ class DocumentIndexClient:
     def list_documents(self, auth: dict[str, str | None]) -> list[dict]:
         data = self._call_tool("list_documents", {"status": "INDEXED", "limit": 50}, auth)
         return data.get("documents", [])
+
+    def list_document_chunks(self, document_id: str, auth: dict[str, str | None]) -> list[dict]:
+        data = self._call_tool("list_document_chunks", {"document_id": document_id}, auth)
+        doc_name = data.get("document_name", "")
+        return [
+            {
+                "chunk_id": c["chunk_id"],
+                "document_id": data.get("document_id", document_id),
+                "document_name": doc_name,
+                "page": c.get("page"),
+                "section_path": c.get("section_path"),
+                "score": 1.0,
+                "text": c.get("text", ""),
+            }
+            for c in data.get("chunks", [])
+        ]

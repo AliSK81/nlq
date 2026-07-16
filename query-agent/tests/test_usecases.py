@@ -1,17 +1,8 @@
 from app.domain.intents import Intent
 from app.usecases.build_answer import BuildAnswer
-from app.usecases.classify import ClassifyIntent, rule_fallback
+from app.usecases.classify import ClassifyIntent
+from app.usecases.contextual_search import citations_from_memory, document_ids_for_memory
 from tests.fakes import FakeLlm, FakeRetrieval
-
-
-def test_rule_fallback_greeting():
-    result = rule_fallback("Hello there")
-    assert result.intent == Intent.CHITCHAT
-
-
-def test_rule_fallback_file_query():
-    result = rule_fallback("What does the report say about revenue?")
-    assert result.intent == Intent.FILE_QUERY
 
 
 def test_classify_with_fake_llm():
@@ -19,6 +10,12 @@ def test_classify_with_fake_llm():
     result, tokens = classify.execute("hello")
     assert result.intent == Intent.CHITCHAT
     assert tokens == 10
+
+
+def test_classify_inventory_with_fake_llm():
+    classify = ClassifyIntent(FakeLlm())
+    result, _ = classify.execute("how many files are uploaded?")
+    assert result.intent == Intent.INVENTORY
 
 
 def test_build_answer_with_hits():

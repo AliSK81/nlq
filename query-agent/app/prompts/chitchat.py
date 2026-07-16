@@ -1,10 +1,9 @@
 CHITCHAT_REPLIES = {
     "chitchat": "Hello! I can help you search and answer questions about your uploaded documents.",
     "intro_capabilities": (
-        "I am **file-qa-agent**, a document Q&A assistant in this NLQ platform. "
-        "I answer questions using documents indexed in the platform (POST http://localhost:8080/ingest) "
-        "or content Open WebUI attaches to your message. "
-        "For persistent search across sessions, ingest files via the platform API and wait until status is INDEXED."
+        "I am **file-qa-agent**, a document Q&A assistant. "
+        "I answer questions using documents indexed in the platform "
+        "or content attached to your message in chat."
     ),
     "off_topic": (
         "I can only help with questions about your uploaded documents. "
