@@ -1,0 +1,27 @@
+---
+description: Open WebUI and docker-compose integration — RAG bypass, docling extraction, PersistentConfig
+globs: docker-compose.yml,.env.example
+alwaysApply: false
+---
+
+# Docker & WebUI
+
+**Source of truth**: `docker-compose.yml` and `.env.example` — not hardcoded ports in rules.
+
+**Open WebUI ↔ query-agent**
+
+- WebUI calls query-agent at `OPENAI_API_BASE_URL` (compose network hostname).
+- Model id exposed to WebUI: `file-qa-agent`.
+
+**File attachments (common failures)**
+
+- WebUI stores RAG settings in its SQLite volume (`PersistentConfig`). Env var changes may **not** override existing DB values — verify inside the running container or reset WebUI volume if settings stick.
+- PDF extraction for chat attachments needs `CONTENT_EXTRACTION_ENGINE=docling` and a reachable `DOCLING_SERVER_URL` (compose service `docling-serve`, port 5001).
+- `BYPASS_EMBEDDING_AND_RETRIEVAL=true` skips vector RAG; full file text must extract successfully or `<source>` tags are empty.
+- After fixing extraction config, users should **re-attach** files (or start a new chat).
+
+**query-agent resilience**
+
+- Large multi-file prompts can yield empty LLM responses → JSON parse errors; context budgeting and plain-text fallback live in the LLM adapter — don't remove without replacement.
+
+When editing compose env for WebUI, document new keys in `.env.example` only if they're shared secrets/config — WebUI-specific vars can stay in compose comments or README.

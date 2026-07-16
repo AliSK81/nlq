@@ -1,0 +1,109 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports: ["6333:6333", "6334:6334"]
+    volumes: ["qdrant_data:/qdrant/storage"]
+
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: nlq
+      POSTGRES_PASSWORD: postgres
+    ports: ["5433:5432"]
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  docling-serve:
+    image: ghcr.io/docling-project/docling-serve-cpu:latest
+    ports: ["5001:5001"]
+    environment:
+      DOCLING_SERVE_ENABLE_UI: "false"
+    networks:
+      default:
+        aliases:
+          - docling
+
+  document-index:
+    build: ./document-index
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      docling-serve:
+        condition: service_started
+    ports: ["8080:8080"]
+    volumes: ["uploads:/data/uploads"]
+    networks:
+      default:
+        aliases:
+          - mcp-platform
+
+  query-agent:
+    build: ./query-agent
+    env_file: .env
+    depends_on:
+      document-index:
+        condition: service_started
+    ports: ["8000:8000"]
+    networks:
+      default:
+        aliases:
+          - orchestrator
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    depends_on:
+      query-agent:
+        condition: service_started
+      docling-serve:
+        condition: service_started
+    environment:
+      OPENAI_API_BASE_URL: http://query-agent:8000/v1
+      OPENAI_API_KEY: local-anything
+      ENABLE_OPENAI_API: "true"
+      ENABLE_OLLAMA_API: "false"
+      ENABLE_EVALUATION_ARENA_MODELS: "false"
+      WEBUI_AUTH: "false"
+      DEFAULT_USER_ROLE: "user"
+      ENABLE_SIGNUP: "false"
+      ENABLE_RAG_WEB_SEARCH: "false"
+      BYPASS_EMBEDDING_AND_RETRIEVAL: "true"
+      BYPASS_MODEL_ACCESS_CONTROL: "true"
+      CONTENT_EXTRACTION_ENGINE: "docling"
+      DOCLING_SERVER_URL: "http://docling-serve:5001"
+      RAG_FULL_CONTEXT: "true"
+      RAG_EMBEDDING_MODEL_AUTO_UPDATE: "false"
+      RAG_RERANKING_MODEL_AUTO_UPDATE: "false"
+    ports: ["3000:8080"]
+    volumes: ["openwebui_data_v2:/app/backend/data"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 120s
+
+  tika:
+    image: apache/tika:latest-full
+    ports: ["9998:9998"]
+    profiles: ["tika"]
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports: ["16686:16686", "4317:4317"]
+    profiles: ["obs"]
+
+volumes:
+  qdrant_data: {}
+  pg_data: {}
+  uploads: {}
+  openwebui_data: {}
+  openwebui_data_v2: {}

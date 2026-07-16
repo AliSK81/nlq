@@ -1,0 +1,34 @@
+---
+description: Python service layer rules for document-index and query-agent
+globs: document-index/**/*.py,query-agent/**/*.py
+alwaysApply: false
+---
+
+# Python services
+
+**Structure**
+
+- `domain/` — models, intents, state; pure Python.
+- `usecases/` — orchestration; take/return domain types; depend on `ports.py` protocols only.
+- `adapters/` — external systems (LLM, Postgres, Qdrant, HTTP, extractors).
+- `delivery/` — FastAPI routes; map HTTP/OpenAI DTOs → use case inputs.
+
+**Adding behavior**
+
+1. Extend or add a port in `usecases/ports.py`.
+2. Implement in `adapters/`.
+3. Call from use case or graph node — not from delivery directly to adapters (except wiring in `main.py`).
+
+**query-agent graph**
+
+- Nodes in `graph/nodes.py`; routing in `graph/template.py`.
+- WebUI attachment parsing: `usecases/parse_webui_rag.py` — preserve `<source>` tag handling when changing message formats.
+
+**Tests**
+
+- Fakes in `tests/fakes.py`; pytest in `tests/`.
+- Prefer testing use cases and parsers with fakes over live LLM/Docker.
+
+**Config**
+
+- New tunables → `app/config.py` + `.env.example` (names only in example, no secrets).

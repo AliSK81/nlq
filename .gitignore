@@ -1,0 +1,50 @@
+# Secrets & local env
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# Test & type tools
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.hypothesis/
+
+# Logs & temp
+*.log
+compose-pull.log
+tmp_*
+*.tmp
+
+# Runtime / upload data
+uploads/
+*.pdf
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Docker (local overrides only; keep compose in repo)
+docker-compose.override.yml
+docker-compose.local.yml

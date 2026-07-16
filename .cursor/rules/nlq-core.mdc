@@ -1,0 +1,16 @@
+---
+description: Core NLQ repo conventions — discover from source, minimal diffs, clean layers
+alwaysApply: true
+---
+
+# NLQ core
+
+- **Discover, don't memorize**: ports, env keys, and filenames live in `README.md`, `docker-compose.yml`, `.env.example`, and each service's `app/`. Search before assuming.
+- **Two Q&A paths**: (1) WebUI inline `<source>` → `prefetched_hits`; (2) document-index ingest → search. Fix the path the user is actually on.
+- **Layers** (both Python services): `domain` → `usecases` (+ `ports.py`) → `adapters` → `delivery`. No I/O in domain; no business logic in delivery.
+- **Naming**: business terms in domain/usecases; vendor/protocol names only in adapters.
+- **Diffs**: smallest correct change; match existing patterns; no phase/guardrail comment blocks.
+- **Verify**: run `pytest` in the touched service; smoke HTTP if behavior crosses services.
+- **Secrets**: never commit `.env`; reference `.env.example` for variable names.
+
+See `AGENTS.md` for workflows and debugging checklist.
