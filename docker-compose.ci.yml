@@ -2,6 +2,10 @@
 #   docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build \
 #     postgres qdrant tika mock-llm document-index query-agent
 services:
+  # Base compose gates Tika behind profile "tika"; CI always needs it.
+  tika:
+    profiles: !reset
+
   mock-llm:
     image: python:3.11-slim
     working_dir: /app
